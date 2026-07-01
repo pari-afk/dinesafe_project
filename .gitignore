@@ -1,0 +1,15 @@
+# macOS
+.DS_Store
+__MACOSX/
+
+# data files too large for GitHub
+data/raw/
+data/processed/dinesafe_unified.csv
+data/processed/dinesafe_unified.parquet
+data/processed/dinesafe_clean.csv
+data/scored/
+
+# python
+__pycache__/
+*.pyc
+.env
