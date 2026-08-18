@@ -3,3 +3,5 @@ numpy
 plotly
 streamlit
 pyarrow
+matplotlib
+requests
