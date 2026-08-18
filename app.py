@@ -322,6 +322,15 @@ with tab_profile:
 
             st.divider()
 
+            concern_url = "https://www.toronto.ca/community-people/health-wellness-care/health-inspections-monitoring/safe-complaints/?prog=DS"
+            st.link_button("Flag a concern about this restaurant", concern_url)
+            st.caption(
+                f"Opens Toronto Public Health's official complaint form. "
+                f"Mention \"{chosen_score['est_name']}\" and the address above when filling it out."
+            )
+
+            st.divider()
+
             #pull full history for this restaurant 
             hist = scoped[
                 scoped["unified_est_id"] == chosen_id
