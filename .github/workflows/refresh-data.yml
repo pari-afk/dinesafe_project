@@ -1,0 +1,51 @@
+name: Refresh DineSafe Data
+
+on:
+  schedule:
+    - cron: "0 9 * * *"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  refresh-data:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Fetch live DineSafe data
+        run: python 00_fetch_live_data.py
+
+      - name: Run ingestion pipeline
+        run: python 02_ingestion_pipeline.py
+
+      - name: Run data cleaning
+        run: python 03_data_cleaning.py
+
+      - name: Run scoring
+        run: python 05_scoring.py
+
+      - name: Run validation
+        run: python 06_validation.py
+
+      - name: Commit and push if data changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/
+          if git diff --staged --quiet; then
+            echo "No data changes, nothing to commit."
+          else
+            git commit -m "Automated data refresh: $(date -u +'%Y-%m-%d')"
+            git push
+          fi

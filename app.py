@@ -100,6 +100,10 @@ df_clean = load_clean()
 scores = load_scores()
 scoped = build_scoped_history(df_clean)
 
+latest_inspection = df_clean["inspection_date"].max()
+if pd.notna(latest_inspection):
+    st.caption(f"Data current through {latest_inspection.strftime('%B %d, %Y')}. Refreshed automatically from Toronto Open Data.")
+
 tab_leaderboard, tab_charts, tab_map, tab_trend, tab_profile = st.tabs(
     ["Leaderboard", "Score Distribution", "Map", "Restaurant Trend", "Restaurant Profile"]
 )
