@@ -20,6 +20,7 @@ severity_weights = {
     "NO_SEVERITY": 0,
 }
 half_life_years = 2.5  # a violation's weight halves every 2.5 years
+shrinkage_k = 10
 
 
 def load_clean():
@@ -81,16 +82,24 @@ def main():
         agg["total_decayed_penalty"] / agg["n_inspections"]
     )
 
-    print("=== avg_penalty_per_inspection distribution ===")
-    print(agg["avg_penalty_per_inspection"].describe())
+    global_mean_penalty = agg["total_decayed_penalty"].sum() / agg["n_inspections"].sum()
+    print(f"Citywide average penalty per inspection: {global_mean_penalty: .4f}\n")
+
+    agg["shrunk_avg_penalty"] = (
+        (agg["n_inspections"] * agg["avg_penalty_per_inspection"] + shrinkage_k * global_mean_penalty)
+        / (agg["n_inspections"] + shrinkage_k)
+    )
+
+    print("=== shrunk_avg_penalty distribution ===")
+    print(agg["shrunk_avg_penalty"].describe())
     print()
 
-    cutoffs = agg["avg_penalty_per_inspection"].quantile([0.2, 0.4, 0.6, 0.8]).values
+    cutoffs = agg["shrunk_avg_penalty"].quantile([0.2, 0.4, 0.6, 0.8]).values
     print("Quintile cutoffs (5-star/4/3/2 boundary, 1-star is anything above):")
     print(cutoffs)
     print()
 
-    agg["stars"] = agg["avg_penalty_per_inspection"].apply(
+    agg["stars"] = agg["shrunk_avg_penalty"].apply(
         lambda x: assign_stars(x, cutoffs)
     )
 
@@ -98,7 +107,10 @@ def main():
     print(agg["stars"].value_counts().sort_index())
     print()
 
-    agg = agg.sort_values("avg_penalty_per_inspection")
+    min_inspections_5star = agg[agg["stars"] ==5]["n_inspections"].min()
+    print(f"Minimum inspections among 5-star restaurants: {min_inspections_5star}\n")
+
+    agg = agg.sort_values("shrunk_avg_penalty")
     agg.to_csv(out_csv, index=False)
     print(f"Saved CSV:     {out_csv}")
 

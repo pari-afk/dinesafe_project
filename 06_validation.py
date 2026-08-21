@@ -108,12 +108,15 @@ def main():
     plt.close(fig)
     print("Saved chart: validation_severity_by_star.png\n")
 
-    ever_closed = scoped.groupby("unified_est_id")["inspection_status"].apply(
-        lambda x: (x == "Closed").any()
+    scoped["is_closed"] = (
+        (scoped["inspection_status"] == "Closed")
+        | scoped["legal_outcome"].str.contains("close", case=False, na=False)
+        | (scoped["enforcement_action"] == "Closure Order")
     )
+    ever_closed = scoped.groupby("unified_est_id")["is_closed"].any()
     agg = agg.merge(ever_closed.rename("ever_closed"), on="unified_est_id")
     closed_by_star = agg.groupby("stars")["ever_closed"].mean() * 100
-    print("=== Validation 2: % of restaurants ever marked 'Closed', by star rating ===")
+    print("Validation 2: % of restaurants ever marked 'Closed', by star rating")
     print(closed_by_star)
     print()
 

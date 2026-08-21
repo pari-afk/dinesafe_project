@@ -83,12 +83,12 @@ def load_current_file(path):
     out["address"] = df["address"]
     out["latitude"] = pd.to_numeric(df["latitude"], errors="coerce")
     out["longitude"] = pd.to_numeric(df["longitude"], errors="coerce")
-    out["establishment_type"] = np.nan          
+    out["establishment_type"] = df["typeDesc"]          
     out["inspection_date"] = pd.to_datetime(df["inspectionDate"], errors="coerce")
     out["inspection_status"] = df["inspectionStatus"]
     out["severity"] = df["severity"]
     out["infraction_detail"] = df["deficiencyDesc"]
-    out["violation_category"] = df["typeDesc"]
+    out["violation_category"] = np.nan
     out["enforcement_action"] = np.nan          
     out["legal_outcome"] = df["OutcomeDesc"]
     out["amount_fined"] = pd.to_numeric(df["amountFined"], errors="coerce")
@@ -128,7 +128,6 @@ def main():
     unified = pd.concat(all_frames, ignore_index=True)
     print(f"\nTotal unified rows: {len(unified):,}")
 
-#------(checking coverage here:)------
 
     current_ids = set(unified.loc[unified["source_era"] == "current", "unified_est_id"].dropna())
     historical_ids = set(unified.loc[unified["source_era"] == "historical", "unified_est_id"].dropna())

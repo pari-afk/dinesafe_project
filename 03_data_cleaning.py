@@ -14,6 +14,23 @@ report_path = os.path.join(OUT_DIR, "data_quality_notes.md")
 
 null_severity_values = ["", "None", "NA - Not Applicable", "NA"]
 
+RESTAURANT_TYPES = [
+    "Restaurant",
+    "Food Take Out",
+    "Food Court Vendor",
+    "Cocktail Bar / Beverage Room",
+    "Bakery",
+    "Bake Shop",
+    "Ice Cream / Yogurt Vendors",
+    "Hot Dog Cart",
+    "Refreshment Stand (Stationary)",
+    "Food Cart",
+    "Mobile Food Preparation Premises",
+    "Restaurant (confirmed, no prior history)",
+]
+
+CONFIRMED_NO_HISTORY_PATH = "/Users/paribhatnagar/Desktop/dinesafe-project/data/manual/confirmed_no_history_restaurants.csv"
+
 def load_unified():
     if os.path.exists(in_parquet):
         return pd.read_parquet(in_parquet)
@@ -40,6 +57,44 @@ def main():
     severity_counts = df["severity"].value_counts(dropna=False)
     print("\nSeverity breakdown after standardization:")
     print(severity_counts)
+
+    #backfill 1: borrowing est type from restaurants historical record
+    type_lookup = (
+        df[(df["source_era"] == "historical") & df["establishment_type"].notna()]
+        .drop_duplicates(subset="unified_est_id")
+        .set_index("unified_est_id")["establishment_type"]
+    )
+
+    n_current_total = (df["source_era"] == "current").sum()
+    missing_mask = (df["source_era"] == "current") & df["establishment_type"].isna()
+    df.loc[missing_mask, "establishment_type"] = df.loc[missing_mask, "unified_est_id"].map(type_lookup)
+
+    n_after_historical_backfill = ((df["source_era"] == "current") & df["establishment_type"].isna()).sum()
+    print(
+        f"\nHistorical backfill: {n_current_total - n_after_historical_backfill: ,} of "
+        f"{n_current_total: ,} current-era rows matched to a historical record."
+    )
+
+    #backfill 2: for current-era rows with no historical records at all
+    #check against the manually & automatically confirmed restaurant list
+    #built w Toronto open Data + manual research (in README).
+    confirmed = pd.read_csv(CONFIRMED_NO_HISTORY_PATH)
+    confirmed["unified_est_id"] = (
+        confirmed["unified_est_id"].astype(str).str.replace(r"\.0$", "", regex=True).str.strip()
+    )
+    confirmed_ids = set(confirmed["unified_est_id"].dropna())
+
+    still_missing_mask = (df["source_era"] == "current") & df["establishment_type"].isna()
+    confirmed_match_mask = still_missing_mask & df["unified_est_id"].isin(confirmed_ids)
+    df.loc[confirmed_match_mask, "establishment_type"] = "Restaurant (confirmed, no prior history)"
+
+    n_confirmed_matched = confirmed_match_mask.sum()
+    n_still_unresolved = ((df["source_era"] == "current") & df["establishment_type"].isna()).sum()
+    print(
+        f"No history confirmed. List backfill: {n_confirmed_matched: ,} additional rows "
+        f"matched. {n_still_unresolved: ,} current-era rows remain unclassified and "
+        f"will be excluded (no historical record and not in the confirmed list)."
+    )
     
     missing_id_mask = df["unified_est_id"].isna()
     n_missing_id = missing_id_mask.sum()
@@ -64,6 +119,21 @@ def main():
         keep="first",
     )
     print(f"Dropped {n_dupe_inspection:,} duplicate same-restaurant/date/infraction rows.")
+
+    n_before_type_filter = len(df)
+    n_unique_before = df["unified_est_id"].nunique()
+
+    df["establishment_type"] = df["establishment_type"].str.strip()
+    df = df[df["establishment_type"].isin(RESTAURANT_TYPES)]
+
+    n_after_type_filter = len(df)
+    n_unique_after = df["unified_est_id"].nunique()
+
+    print(
+        f"\nFiltered to restaurant-type establishments only: "
+        f"kept {n_after_type_filter: ,} of {n_before_type_filter: ,} inspection rows "
+        f"({n_unique_after: ,} of {n_unique_before: ,} unique establishments)."
+    )
 
     valid_id_df = df[df["has_valid_id"]]
     name_variation = valid_id_df.groupby("unified_est_id")["est_name"].nunique()
