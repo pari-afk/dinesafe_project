@@ -153,6 +153,10 @@ latest_inspection = df_clean["inspection_date"].max()
 if pd.notna(latest_inspection):
     st.caption(f"Data current through {latest_inspection.strftime('%B %d, %Y')}. Refreshed automatically from Toronto Open Data.")
 
+    last_refresh = os.path.getmtime(CLEAN_PARQUET)
+    last_refresh_str = pd.Timestamp(last_refresh, unit="s").strftime("%B %d, %Y at %I:%M %p")
+    st.caption(f"Pipeline last refreshed: {last_refresh_str}")
+
 tab_leaderboard, tab_trend, tab_map, tab_profile, tab_charts = st.tabs(
     ["Leaderboard", "Restaurant Trend", "Map", "Restaurant Profile", "Score Distribution"]
 )
