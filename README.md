@@ -101,3 +101,38 @@ There's a natural language search box on the leaderboard, backed by an LLM (Gemi
 Worth saying directly, since it's an easy thing to misread: this rating reflects food safety inspection history, not food quality, service, or the dining experience. A 5-star safety rating means an excellent, clean inspection record. It doesn't mean the food is good.
 
 ## Running it yourself
+pip install -r requirements.txt
+cd dinesafe-project
+streamlit run app.py
+
+
+Opens up in your browser. Five tabs: a searchable leaderboard with plain-English search, a restaurant trend view showing how any single restaurant's score has shifted year by year, a map colored by rating, a full restaurant profile with inspection-by-inspection history, and score distribution charts.
+
+To pull fresh data yourself instead of using what's committed, run `python 00_fetch_live_data.py` before the rest of the pipeline.
+
+## What is in here
+
+- `00_fetch_live_data.py` - pulls current data from Toronto's Open Data API
+- `01_audit_and_schema.py`
+- `02_ingestion_pipeline.py`
+- `03_data_cleaning.py`
+- `04_eda.py`
+- `05_scoring.py`
+- `06_validation.py`
+- `app.py`
+- `requirements.txt`
+- `.github/workflows/refresh-data.yml` - scheduled pipeline run and auto-commit
+- `data/raw/` - source CSVs, historical files plus the live-refreshed current file
+- `data/processed/` - cleaned dataset
+- `data/manual/` - manually verified restaurant classifications
+- `data/scored/` - raw scoring output
+- `data/validation/` - final scores, overdue flags, and validation charts
+- `data/eda/` - exploratory charts
+
+## Built with
+
+Python, pandas, numpy, Streamlit, Plotly, GitHub Actions, Google Gemini.
+
+## Source
+
+City of Toronto DineSafe Open Data - https://open.toronto.ca/dataset/dinesafe/
