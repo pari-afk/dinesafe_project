@@ -29,7 +29,7 @@ RESTAURANT_TYPES = [
     "Restaurant (confirmed, no prior history)",
 ]
 
-CONFIRMED_NO_HISTORY_PATH = "/Users/paribhatnagar/Desktop/dinesafe-project/data/manual/confirmed_no_history_restaurants.csv"
+CONFIRMED_NO_HISTORY_PATH = "data/manual/confirmed_no_history_restaurants.csv"
 
 def load_unified():
     if os.path.exists(in_parquet):
