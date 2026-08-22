@@ -90,6 +90,43 @@ def main():
         / (agg["n_inspections"] + shrinkage_k)
     )
 
+    unique_visits = scoped[["unified_est_id", "inspection_date"]].drop_duplicates()
+    population_median_gap = (
+        unique_visits.sort_values("inspection_date")
+        .groupby("unified_est_id")["inspection_date"]
+        .apply(lambda dates: dates.diff().dt.days.dropna())
+        .median()
+    )
+
+    def compute_overdue_stats(dates):
+        dates = dates.sort_values()
+        gaps = dates.diff().dt.days.dropna()
+        typical_gap = gaps.median() if len(gaps) >= 3 else population_median_gap
+        days_since_last = (scoped["inspection_date"].max() - dates.max()).days
+        return pd.Series({
+            "days_since_last": days_since_last,
+            "typical_gap": typical_gap,
+            "overdue_ratio": days_since_last / typical_gap,
+        })
+
+    overdue_stats = (
+        unique_visits.groupby("unified_est_id")["inspection_date"]
+        .apply(compute_overdue_stats)
+        .unstack()
+        .reset_index()
+    )
+
+    overdue_cutoff = overdue_stats["overdue_ratio"].quantile(0.95)
+    overdue_stats["is_overdue"] = overdue_stats["overdue_ratio"] >= overdue_cutoff
+
+    print(f"\nOverdue-for-inspection flag: top 5% cutoff = {overdue_cutoff:.2f}x, "
+          f"flagging {overdue_stats['is_overdue'].sum():,} of {len(overdue_stats):,} restaurants")
+
+    agg = agg.merge(
+        overdue_stats[["unified_est_id", "days_since_last", "typical_gap", "overdue_ratio", "is_overdue"]],
+        on="unified_est_id",
+    )
+    
     print("=== shrunk_avg_penalty distribution ===")
     print(agg["shrunk_avg_penalty"].describe())
     print()

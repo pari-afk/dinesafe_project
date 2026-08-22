@@ -1,15 +1,18 @@
-
 import os
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 
 IN_DIR = "data/processed"
+SCORES_DIR = "data/scored"
 OUT_DIR = "data/validation"
 os.makedirs(OUT_DIR, exist_ok=True)
 
 in_parquet = os.path.join(IN_DIR, "dinesafe_clean.parquet")
 in_csv = os.path.join(IN_DIR, "dinesafe_clean.csv")
+
+scores_parquet = os.path.join(SCORES_DIR, "restaurant_scores.parquet")
+scores_csv = os.path.join(SCORES_DIR, "restaurant_scores.csv")
 
 out_scores_csv = os.path.join(OUT_DIR, "restaurant_scores_v2.csv")
 out_scores_parquet = os.path.join(OUT_DIR, "restaurant_scores_v2.parquet")
@@ -22,12 +25,12 @@ severity_weights = {
     "NO_SEVERITY": 0,
 }
 half_life_years = 2.5
-shrinkage_k = 5  
 
 spot_check_names = [
     "SWISS CHALET", "PIZZA PIZZA", "THE KEG", "TIM HORTONS",
     "KINTON RAMEN", "JACK ASTOR", "EARLS",
 ]
+
 
 def load_clean():
     if os.path.exists(in_parquet):
@@ -36,6 +39,15 @@ def load_clean():
         return pd.read_csv(in_csv, parse_dates=["inspection_date"])
     else:
         raise SystemExit(f"cant find dinesafe_clean.parquet or .csv in {IN_DIR}")
+
+
+def load_scores():
+    if os.path.exists(scores_parquet):
+        return pd.read_parquet(scores_parquet)
+    elif os.path.exists(scores_csv):
+        return pd.read_csv(scores_csv)
+    else:
+        raise SystemExit(f"Couldn't find restaurant_scores from 05_scoring.py -- run that first.")
 
 
 def assign_stars(penalty, cutoffs):
@@ -69,24 +81,10 @@ def main():
     scoped["decay_weight"] = 0.5 ** (scoped["years_ago"] / half_life_years)
     scoped["penalty"] = scoped["severity_weight"] * scoped["decay_weight"]
 
-    agg = (
-        scoped.groupby("unified_est_id")
-        .agg(
-            total_decayed_penalty=("penalty", "sum"),
-            n_inspections=("unified_est_id", "size"),
-            est_name=("est_name", "last"),
-            address=("address", "last"),
-        )
-        .reset_index()
-    )
+    agg = load_scores()
+    print(f"Loaded {len(agg):,} scored restaurants from 05_scoring.py output.\n")
 
-    global_mean_penalty = agg["total_decayed_penalty"].sum() / agg["n_inspections"].sum()
-    agg["adjusted_penalty"] = (
-        agg["total_decayed_penalty"] + shrinkage_k * global_mean_penalty
-    ) / (agg["n_inspections"] + shrinkage_k)
-
-    cutoffs = agg["adjusted_penalty"].quantile([0.2, 0.4, 0.6, 0.8]).values
-    agg["stars"] = agg["adjusted_penalty"].apply(lambda x: assign_stars(x, cutoffs))
+    agg["adjusted_penalty"] = agg["shrunk_avg_penalty"]
 
     print("=== n_inspections by star rating (should generally increase with stars) ===")
     print(agg.groupby("stars")["n_inspections"].agg(["mean", "min", "median", "max"]))
@@ -130,7 +128,7 @@ def main():
     plt.close(fig)
     print("Saved chart: validation_closed_rate_by_star.png\n")
 
-    agg["unadjusted_penalty"] = agg["total_decayed_penalty"] / agg["n_inspections"]
+    agg["unadjusted_penalty"] = agg["avg_penalty_per_inspection"]
     cutoffs_unadj = agg["unadjusted_penalty"].quantile([0.2, 0.4, 0.6, 0.8]).values
     agg["stars_unadjusted"] = agg["unadjusted_penalty"].apply(
         lambda x: assign_stars(x, cutoffs_unadj)
@@ -170,8 +168,8 @@ def main():
         print("No matches found for the spot-check names - dataset may not contain them.")
     print()
 
-    agg_out = agg.drop(columns=["unadjusted_penalty", "stars_unadjusted"])
-    agg_out = agg_out.sort_values("adjusted_penalty")
+    agg_out = agg.drop(columns=["unadjusted_penalty", "stars_unadjusted", "adjusted_penalty"], errors="ignore")
+    agg_out = agg_out.sort_values("shrunk_avg_penalty")
     agg_out.to_csv(out_scores_csv, index=False)
     print(f"Saved CSV:     {out_scores_csv}")
     try:
@@ -179,7 +177,6 @@ def main():
         print(f"Saved Parquet: {out_scores_parquet}")
     except ImportError:
         print("install pyarrow to enable")
-
 
     print("\nDone.")
 
