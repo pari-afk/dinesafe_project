@@ -181,6 +181,7 @@ with tab_leaderboard:
             default=[],
             placeholder="Start typing a restaurant name...",
         )
+        st.caption("💡 Tip: Select one or more restaurants to compare them on the leaderboard!")
     with col2:
         star_filter = st.multiselect("Filter by stars", [5, 4, 3, 2, 1], default=[5, 4, 3, 2, 1])
         overdue_only = st.checkbox("Show only overdue-for-inspection restaurants")
