@@ -136,13 +136,21 @@ st.set_page_config(page_title="Toronto Restaurant Safety Scores", layout="wide")
 st.title("Toronto Restaurant Safety Scores")
 st.caption("See how safe Toronto restaurants really are, based on 25 years of official city health inspections.")
 
+st.info(
+    "This rating system reflects a restaurant's food safety inspection "
+    "history only, not the quality of its food, service, or dining "
+    "experience. A 5-star safety rating means an excellent, clean inspection "
+    "record, not a 5-star dining experience. "
+)
+
 with st.expander("What do these mean?"):
-    st.write(
-        "**Crucial** - a serious violation with immediate health risk (e.g. no working "
-        "handwashing station). **Significant** - a real risk that needs fixing soon "
-        "(e.g. improper food storage temperature). **Minor** - a smaller issue, often "
-        "about cleanliness or record-keeping, that's still worth noting but isn't an "
-        "immediate concern."
+    st.markdown(
+        """
+- 🔴 **Crucial** — a serious violation with immediate health risk (e.g. no working handwashing station)
+- 🟠 **Significant** — a real risk that needs fixing soon (e.g. improper food storage temperature)
+- 🟡 **Minor** — a smaller issue, often about cleanliness or record-keeping, that's still worth noting but isn't an immediate concern
+- 🟢 **Clean** — no violations found during that inspection
+"""
     )
 
 df_clean = load_clean()
@@ -175,17 +183,20 @@ with tab_leaderboard:
         )
     with col2:
         star_filter = st.multiselect("Filter by stars", [5, 4, 3, 2, 1], default=[5, 4, 3, 2, 1])
-
+        overdue_only = st.checkbox("Show only overdue-for-inspection restaurants")
+        
     filtered = scores[scores["stars"].isin(star_filter)]
     if name_filter:
         filtered = filtered[filtered["est_name"].isin(name_filter)]
+    if overdue_only:
+        filtered = filtered[filtered["is_overdue"] == True]
 
-    display_cols = ["est_name", "address", "stars", "n_inspections", "adjusted_penalty"]
+    display_cols = ["est_name", "address", "stars", "n_inspections", "shrunk_avg_penalty"]
     display_cols = [c for c in display_cols if c in filtered.columns]
 
     st.divider()
     st.markdown("**...or just ask in plain English**")
-    nl_query = st.text_input("e.g. \"cheap italian food with a good safety record\"", key="nl_search")
+    nl_query = st.text_input("e.g. \"Best sushi places in town\"", key="nl_search")
 
     if nl_query:
         with st.spinner("Thinking..."):
@@ -213,7 +224,7 @@ with tab_leaderboard:
                     "address": "Address",
                     "stars": "Stars",
                     "n_inspections": "Inspections",
-                    "adjusted_penalty": "Score (lower = better)",
+                    "shrunk_avg_penalty": "Score (lower = better)",
                 })
                 .sort_values("Stars", ascending=sort_ascending),
                 width="stretch",
@@ -249,7 +260,7 @@ with tab_leaderboard:
             "address": "Address",
             "stars": "Stars",
             "n_inspections": "Inspections",
-            "adjusted_penalty": "Score (lower = better)",
+            "shrunk_avg_penalty": "Score (lower = better)",
         })
         .sort_values("Stars", ascending=False),
         width="stretch",
@@ -263,8 +274,8 @@ with tab_charts:
 
     with col1:
         fig = px.histogram(
-            scores, x="adjusted_penalty", nbins=50,
-            labels={"adjusted_penalty": "Score (lower = better)"},
+            scores, x="shrunk_avg_penalty", nbins=50,
+            labels={"shrunk_avg_penalty": "Score (lower = better)"},
             title="Distribution of restaurant scores",
         )
         st.plotly_chart(fig, width="stretch")
@@ -426,11 +437,18 @@ with tab_profile:
             st.write(chosen_score["address"])
         with col_b:
             stars_display = "⭐" * int(chosen_score["stars"])
-            st.metric("Rating", stars_display)
+            st.metric("Safety Rating", stars_display)
+            st.caption("Based on health inspections, not a dining review!")
         with col_c:
             st.metric("Total inspections", int(chosen_score["n_inspections"]))
 
         st.divider()
+        if chosen_score.get("is_overdue"):
+            st.warning(
+                f"This restaurant hasn't been inspected in {int(chosen_score['days_since_last'])} days, "
+                f"longer than its usual gap of about {int(chosen_score['typical_gap'])} days. "
+                f"It is among the 5% most overdue currently-operating restaurants."
+            )
 
         concern_url = "https://www.toronto.ca/community-people/health-wellness-care/health-inspections-monitoring/safe-complaints/?prog=DS"
         st.link_button("Flag a concern about this restaurant", concern_url)
