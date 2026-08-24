@@ -69,6 +69,18 @@ SEVERITY_WEIGHTS = {
 HALF_LIFE_YEARS = 2.5
 SHRINKAGE_K = 5
 
+CLEAN_COLUMNS = [
+    "unified_est_id", "est_name", "address", "latitude", "longitude",
+    "inspection_date", "inspection_status", "severity", "infraction_detail",
+    "enforcement_action", "legal_outcome", "source_era", "has_valid_id",
+]
+
+CLEAN_CATEGORY_COLUMNS = [
+    "unified_est_id", "est_name", "address", "inspection_status",
+    "severity", "infraction_detail", "enforcement_action",
+    "legal_outcome", "source_era",
+]
+
 STAR_COLORS = {
     5: "#4575b4",  #blue
     4: "#91bfdb",  #light blue
@@ -78,16 +90,19 @@ STAR_COLORS = {
 }
 
 
-@st.cache_data
+@st.cache_data(ttl="6h")
 def load_clean():
     if os.path.exists(CLEAN_PARQUET):
-        return pd.read_parquet(CLEAN_PARQUET)
+        df = pd.read_parquet(CLEAN_PARQUET, columns=CLEAN_COLUMNS)
     elif os.path.exists(CLEAN_CSV):
-        return pd.read_csv(CLEAN_CSV, parse_dates=["inspection_date"])
+        df = pd.read_csv(CLEAN_CSV, usecols=CLEAN_COLUMNS, parse_dates=["inspection_date"])
     else:
         st.error(f"Couldn't find dinesafe_clean.parquet or .csv in '{CLEAN_DIR}'")
         st.stop()
-
+    for col in CLEAN_CATEGORY_COLUMNS:
+        df[col] = df[col].astype("category")
+    return df
+    
 
 @st.cache_data
 def load_scores():
@@ -107,7 +122,7 @@ def build_scoped_history(_df_clean):
         df_valid.loc[df_valid["source_era"] == "current", "unified_est_id"]
     )
     scoped = df_valid[df_valid["unified_est_id"].isin(current_ids)].copy()
-    scoped["severity_weight"] = scoped["severity"].map(SEVERITY_WEIGHTS)
+    scoped["severity_weight"] = scoped["severity"].map(SEVERITY_WEIGHTS).astype("int64")
     return scoped
 
 
