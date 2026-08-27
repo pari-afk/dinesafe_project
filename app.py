@@ -362,6 +362,12 @@ with tab_map:
     map_df = scores.merge(latest_location, on="unified_est_id")
     map_df = map_df[map_df["stars"].isin(map_star_filter)]
 
+    if len(map_df) > 0:
+        center_lat = map_df["latitude"].mean()
+        center_lon = map_df["longitude"].mean()
+    else:
+        center_lat, center_lon = 43.7, -79.4 #auto to Toronto
+
     fig = px.scatter_map(
         map_df,
         lat="latitude",
@@ -371,9 +377,11 @@ with tab_map:
         hover_data={"address": True, "n_inspections": True, "stars": True,
                     "latitude": False, "longitude": False},
         color_continuous_scale=[STAR_COLORS[s] for s in sorted(STAR_COLORS)],
+        center={"lat": center_lat, "lon": center_lon},
         zoom=10,
         height=600,
     )
+    
     fig.update_layout(map_style="open-street-map", margin={"l": 0, "r": 0, "t": 0, "b": 0})
     st.plotly_chart(fig, width="stretch")
 
