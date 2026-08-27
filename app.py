@@ -374,7 +374,7 @@ with tab_map:
         zoom=10,
         height=600,
     )
-    fig.update_layout(mapbox_style="open-street-map", margin={"l": 0, "r": 0, "t": 0, "b": 0})
+    fig.update_layout(map_style="open-street-map", margin={"l": 0, "r": 0, "t": 0, "b": 0})
     st.plotly_chart(fig, width="stretch")
 
 with tab_trend:
