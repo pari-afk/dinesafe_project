@@ -362,7 +362,7 @@ with tab_map:
     map_df = scores.merge(latest_location, on="unified_est_id")
     map_df = map_df[map_df["stars"].isin(map_star_filter)]
 
-    fig = px.scatter_mapbox(
+    fig = px.scatter_map(
         map_df,
         lat="latitude",
         lon="longitude",
